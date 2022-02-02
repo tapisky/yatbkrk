@@ -1,0 +1,22 @@
+---  # user config
+
+# APIs
+cdc_api_key:
+cdc_api_secret:
+krk_api_key:
+krk_api_secret:
+bnb_api_key:
+bnb_api_secret:
+taapi_api_key:
+
+# YATB MODES
+safe_mode_on: True # True => no real trades will be made; False => real trades will be made
+test_mode_on: True # True => Arbitrito will run just once ; False => Arbitrito will run forever until stopped
+
+# LOOP SETTINGS
+seconds_between_iterations: 5
+
+# TELEGRAM CONFIGURATION
+telegram_notifications_on: False
+telegram_bot_token:
+telegram_user_id:
