@@ -27,7 +27,7 @@ STABLE_FIAT_COINS = ["USDT", "CAD", "GBP", "USDC", "EUR", "CHZ", "JPY", "PAX", "
 class Analyzer:
     def __init__(self, config, krk_exchange, logger):
         self.config = config
-        self.exchange = krk_exchange
+        self.krk_exchange = krk_exchange
         self.logger = logger
 
     async def get_opportunities(self):
@@ -69,19 +69,28 @@ class Analyzer:
 
             # Get Kraken asset pairs and filter/sort them according to CoinMarketCap list
             self.logger.info("Getting filtered and sorted asset pairs list from Kraken according to CoinMarketCap list...")
-            krk_asset_pairs = await self.exchange.query_public('AssetPairs')
-            krk_usd_asset_pairs = [x for x in krk_asset_pairs['result'] if "USD" in x]
-            krk_processed_usd_assets_pairs = {key: krk_asset_pairs['result'][key]['wsname'] for key in krk_usd_asset_pairs}
-            krk_filtered_usd_asset_pairs = {k: v for k, v in krk_processed_usd_assets_pairs.items() if not any(sub in v for sub in STABLE_FIAT_COINS)}
-            krk_filtered_usd_asset_pairs = {k: v.replace("/", "") for k, v in krk_filtered_usd_asset_pairs.items()}
-            for target_symbol in target_symbols:
-                if "BTC" in target_symbol:
-                    if any("XBTUSD" in v for v in krk_filtered_usd_asset_pairs.values()):
-                        sorted_asset_pairs['BTCUSD'] = [k for k,v in krk_filtered_usd_asset_pairs.items() if v == 'XBTUSD'][0]
-                else:
-                    t = target_symbol + "USD"
-                    if any(t in v for v in krk_filtered_usd_asset_pairs.values()):
-                        sorted_asset_pairs[t] = [k for k,v in krk_filtered_usd_asset_pairs.items() if v == t][0]
+            done = False
+            for _ in range(10):
+                try:
+                    krk_asset_pairs = await self.krk_exchange.query_public('AssetPairs')
+                    done = True
+                    break
+                except:
+                    await asyncio.sleep(2)
+                    continue
+            if done:
+                krk_usd_asset_pairs = [x for x in krk_asset_pairs['result'] if "USD" in x]
+                krk_processed_usd_assets_pairs = {key: krk_asset_pairs['result'][key]['wsname'] for key in krk_usd_asset_pairs}
+                krk_filtered_usd_asset_pairs = {k: v for k, v in krk_processed_usd_assets_pairs.items() if not any(sub in v for sub in STABLE_FIAT_COINS)}
+                krk_filtered_usd_asset_pairs = {k: v.replace("/", "") for k, v in krk_filtered_usd_asset_pairs.items()}
+                for target_symbol in target_symbols:
+                    if "BTC" in target_symbol:
+                        if any("XBTUSD" in v for v in krk_filtered_usd_asset_pairs.values()):
+                            sorted_asset_pairs['BTCUSD'] = [k for k,v in krk_filtered_usd_asset_pairs.items() if v == 'XBTUSD'][0]
+                    else:
+                        t = target_symbol + "USD"
+                        if any(t in v for v in krk_filtered_usd_asset_pairs.values()):
+                            sorted_asset_pairs[t] = [k for k,v in krk_filtered_usd_asset_pairs.items() if v == t][0]
         return sorted_asset_pairs
 
     async def analyze_pair(self, pair, kraken_pair, interval, opps):
@@ -100,10 +109,10 @@ class Analyzer:
         for _ in range(5):
             try:
                 await asyncio.sleep(sample(NONCE,1)[0])
-                klines = await self.exchange.query_public('OHLC', {'pair': pair, 'interval': interval})
+                klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': interval})
                 klines = klines['result'][kraken_pair][-1]
                 await asyncio.sleep(sample(NONCE,1)[0])
-                prev_klines = await self.exchange.query_public('OHLC', {'pair': pair, 'interval': interval})
+                prev_klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': interval})
                 prev_klines = prev_klines['result'][kraken_pair][-2]
                 if float(prev_klines[4]) - float(prev_klines[1]) < 0:
                     prevKline = 'negative'
@@ -210,7 +219,7 @@ class Analyzer:
                 )
             ):
                 # Put  opportunities in opps dict
-                opps.append({'pair': pair, 'interval': interval})
+                opps.append({'pair': pair, 'krk_pair': kraken_pair, 'interval': interval})
                 self.logger.info(f"{pair} good candidate for one of the  strategies")
             else:
                 self.logger.info(f"{pair} not a good entry point")
