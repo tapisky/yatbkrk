@@ -36,7 +36,7 @@ class Simulator:
         trades.append({'pair': pair, 'type': 'sim', 'interval': '15m', 'status': 'active', 'orderid': 0, 'time': time.time(), 'expirytime': time.time() + 43200.0, 'buyprice': float(krk_buy_price), 'expsellprice': expected_sell_price, 'quantity': quantity})
         account_30d_volume += float(trade_amount)
         log_message = f"<YATB SIM> [{pair}] Bought {str(trade_amount)} @ {krk_buy_price} = {str(quantity)}. Sell @ {str(expected_sell_price)}. Exp. Profit ~ {str(profit)} USD"
-        logger.info(log_message)
+        self.logger.info(log_message)
         if self.telegram.notifications_on:
             self.telegram.send(log_message)
         result = True
