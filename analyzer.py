@@ -19,10 +19,7 @@ from datetime import timedelta
 from requests import Request, Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 from os.path import exists
-
-NONCE = [0.1, 0.2, 0.3, 0.4]
-STABLE_COINS = ['USDC', 'USDT', 'PAX', 'ONG', 'TUSD', 'BUSD', 'ONT', 'GUSD', 'DGX', 'DAI', 'UST']
-STABLE_FIAT_COINS = ["USDT", "CAD", "GBP", "USDC", "EUR", "CHZ", "JPY", "PAX", "DAI", "CHF"]
+from yatbkrk_constants import *
 
 class Analyzer:
     def __init__(self, config, krk_exchange, logger):
@@ -109,10 +106,10 @@ class Analyzer:
         for _ in range(5):
             try:
                 await asyncio.sleep(sample(NONCE,1)[0])
-                klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': interval})
+                klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': KRK_INTERVALS[interval]})
                 klines = klines['result'][kraken_pair][-1]
                 await asyncio.sleep(sample(NONCE,1)[0])
-                prev_klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': interval})
+                prev_klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': KRK_INTERVALS[interval]})
                 prev_klines = prev_klines['result'][kraken_pair][-2]
                 if float(prev_klines[4]) - float(prev_klines[1]) < 0:
                     prevKline = 'negative'
@@ -143,7 +140,7 @@ class Analyzer:
             "construct": {
                 "exchange": "binance",
                 "symbol": taapiSymbol,
-                "interval": "15m",
+                "interval": interval,
                 "indicators": [
                 {
                     # Previous Relative Strength Index
@@ -219,8 +216,8 @@ class Analyzer:
                 )
             ):
                 # Put  opportunities in opps dict
-                opps.append({'pair': pair, 'krk_pair': kraken_pair, 'interval': interval})
-                self.logger.info(f"{pair} good candidate for one of the  strategies")
+                opps.append({'pair': pair, 'krk_pair': kraken_pair, 'interval': interval, 'priority': PRIORITIES[interval]})
+                self.logger.info(f"{pair} good candidate for one of the strategies")
             else:
                 self.logger.info(f"{pair} not a good entry point")
         else:
