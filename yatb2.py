@@ -137,11 +137,11 @@ async def main(config):
 
         # Check markets if it's the right time
         intervals = []
-        if time.gmtime()[3] % 24 == 23 and time.gmtime()[4] >= 53 and time.gmtime()[4] < 58:
+        if time.gmtime()[3] % 24 == 23 and time.gmtime()[4] == 58:
             intervals.append('1d')
-        if time.gmtime()[3] % 4 == 3 and time.gmtime()[4] >= 53 and time.gmtime()[4] < 58:
+        if time.gmtime()[3] % 4 == 3 and time.gmtime()[4] == 58:
             intervals.append('4h')
-        if time.gmtime()[4] % 15 >= 13:
+        if (time.gmtime()[4] % 15 == 13) or (time.gmtime()[4] % 15 == 14 and time.gmtime()[5] < 10):
             intervals.append('15m')
 
         if intervals:
