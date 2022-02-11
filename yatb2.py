@@ -123,7 +123,7 @@ async def main(config):
                     trade['status'] = 'remove'
                     trade['result'] = 'unsuccessful'
                     volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
-                    sell_price = await exchange.krk.get_sell_price(trade['pair'])
+                    sell_price = await exchange.get_sell_price(trade['pair'])
                     quantity = round(float(trade['quantity']) * float(sell_price) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
                     google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
                     available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)

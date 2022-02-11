@@ -22,6 +22,7 @@ from os.path import exists
 from yatbkrk_constants import *
 
 class Analyzer:
+    """Configures Analyzer object to get trading info from CoinMarketCap, Kraken and TAAPI APIs"""
     def __init__(self, config, krk_exchange, logger):
         self.config = config
         self.krk_exchange = krk_exchange

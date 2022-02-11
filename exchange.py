@@ -5,6 +5,7 @@ from asynckraken import Client
 
 class Exchange:
     def __init__(self, api_key, api_secret, logger):
+        """Configures Exchange object with keys and logger for async Kraken exchange"""
         self.krk = Client(key=api_key, secret=api_secret)
         self.logger = logger
 

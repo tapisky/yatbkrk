@@ -5,6 +5,7 @@ from random import sample
 from yatbkrk_constants import *
 
 class Simulator:
+    """Configures Simulator object to simulate buy/sell actions"""
     def __init__(self, krk_exchange, google_sheets_helper, logger, telegram):
         self.krk_exchange = krk_exchange
         self.google_sheets_helper = google_sheets_helper
