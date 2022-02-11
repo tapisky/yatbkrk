@@ -43,7 +43,7 @@ async def main(config):
     trades = []
 
     # Kraken API setup
-    krk_exchange = Exchange(key=config['krk_api_key'], secret=config['krk_api_secret'], logger)
+    krk_exchange = Exchange(config['krk_api_key'], config['krk_api_secret'], logger)
 
     # Initialize Google sheets
     google_sheets_helper = SheetsHelper(config['sheet_id'], logger)
