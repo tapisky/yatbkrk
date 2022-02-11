@@ -1,5 +1,6 @@
 import time
 import traceback
+import asyncio
 from asynckraken import Client
 
 class Exchange:
@@ -7,7 +8,7 @@ class Exchange:
         self.krk_exchange = Client(key=krk_api_key, secret=krk_api_secret)
         selg.logger = logger
 
-    def get_sell_price(self, pair):
+    async def get_sell_price(self, pair):
         result = 0
         # Get bid/ask prices
         for _ in range(20):
