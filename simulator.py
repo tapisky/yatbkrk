@@ -65,7 +65,7 @@ class Simulator:
             fees = self.get_krk_fees(account_30d_volume)
             quantity = round((float(trade_amount) / float(krk_buy_price)) * (1.0 - fees), 5)
             profit = round((float(krk_sell_price) * quantity * (1.0 - fees)) - trade_amount, 3)
-            expiry_time = TRADE_EXPIRY_TIME['interval']
+            expiry_time = TRADE_EXPIRY_TIME[interval]
             trades.append({'pair': pair, 'krk_pair': krk_pair, 'type': 'sim', 'interval': interval, 'status': 'active', 'orderid': 0, 'time': time.time(), 'expirytime': expiry_time, 'buyprice': krk_buy_price, 'expsellprice': krk_sell_price, 'quantity': quantity, 'profit': profit})
             result = float(trade_amount)
             # self.google_sheets_helper.update_row('SimulationTest!T2:T2', account_30d_volume)
