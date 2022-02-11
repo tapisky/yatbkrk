@@ -5,7 +5,7 @@ from asynckraken import Client
 
 class Exchange:
     def __init__(self, api_key, api_secret, logger):
-        self.krk_exchange = Client(key=krk_api_key, secret=krk_api_secret)
+        self.krk_exchange = Client(key=api_key, secret=api_secret)
         selg.logger = logger
 
     async def get_sell_price(self, pair):
