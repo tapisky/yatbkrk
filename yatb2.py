@@ -136,7 +136,7 @@ async def main(config):
                         # balance = get_total_usdt_balance(bnb_exchange.krk)
                         # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
                     result_text = "won" if float(trade['profit']) > 0 else "lost"
-                    log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {volume_30d + quantity}"
+                    log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {round(volume_30d + quantity, 2)}"
                     logger.info(log_message)
                     if telegram.notifications_on:
                         telegram.send(log_message)
@@ -144,7 +144,7 @@ async def main(config):
                     sheets_date = str(time.localtime(time.time())[1]) + '/' + str(time.localtime(time.time())[2]) + '/' + str(time.localtime(time.time())[0])
                     google_sheets_helper.append_row('SimulationTest!A1:A5000', sheets_date, balance + trade['profit'])
                     opp_details = f"{trade['pair']} - {trade['interval']}"
-                    google_sheets_helper.append_row('SimulationTest!H3:H5000', opp_details, "")
+                    # google_sheets_helper.append_row('SimulationTest!H3:H5000', opp_details, "")
             else:
                 # Current trade is still valid
                 logger.info(f"<YATB> [{trade['pair']}] Trade ongoing:")

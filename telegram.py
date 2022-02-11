@@ -22,7 +22,7 @@ class Telegram:
                 response = requests.get(send_text)
                 return response.json()
             except:
-                self.logger.info(e)
+                self.logger.info(traceback.format_exc())
                 print("Retrying after 10 seconds...")
                 time.sleep(10)
                 continue
