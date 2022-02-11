@@ -43,7 +43,10 @@ async def main(config):
     trades = []
 
     # Kraken API setup
-    krk_exchange = Exchange(config['krk_api_key'], config['krk_api_secret'], logger)
+    exchange = Exchange(config['krk_api_key'], config['krk_api_secret'], logger)
+
+    # Initialize Analyzer
+    analyzer = Analyzer(config, exchange.krk, logger)
 
     # Initialize Google sheets
     google_sheets_helper = SheetsHelper(config['sheet_id'], logger)
@@ -57,7 +60,7 @@ async def main(config):
     sorted_pairs = {}
 
     # Initialize Simulator
-    simulator = Simulator(krk_exchange, google_sheets_helper, logger, telegram)
+    simulator = Simulator(exchange.krk, google_sheets_helper, logger, telegram)
 
     # Initialize sim_trades
     sim_trades = config['sim_trades']
@@ -81,11 +84,11 @@ async def main(config):
                 # Get current candle high and low prices of trade['pair']
                 for _ in range(5):
                     try:
-                        klines = await krk_exchange.query_public('OHLC', {'pair': trade['pair'], 'interval': KRK_INTERVALS[trade['interval']]})
+                        klines = await exchange.krk.query_public('OHLC', {'pair': trade['pair'], 'interval': KRK_INTERVALS[trade['interval']]})
                         if klines['error'] != []:
                             raise
                         klines = klines['result'][list(klines['result'].keys())[0]][-1]
-                        # krk_asset_pair = await krk_exchange.query_public("AssetPairs", {'pair': trade['pair']})
+                        # krk_asset_pair = await exchange.krk.query_public("AssetPairs", {'pair': trade['pair']})
                         # if krk_asset_pair['error'] != []:
                         #     raise
                         # else:
@@ -96,7 +99,7 @@ async def main(config):
                         # print(f'[{pair}] Lot Decimals {str(lot_decimals)}')
                         # order_min = len(krk_asset_pair['ordermin'].split(".")[1])
                         # print(f'[{pair}] Order Min Decimals {str(order_min)}')
-                        krk_tickers = await krk_exchange.query_public("Ticker", {'pair': trade['pair']})
+                        krk_tickers = await exchange.krk.query_public("Ticker", {'pair': trade['pair']})
                         if krk_tickers['error'] != []:
                             raise
                         krk_tickers = krk_tickers['result'][list(krk_tickers['result'].keys())[0]]
@@ -120,7 +123,7 @@ async def main(config):
                     trade['status'] = 'remove'
                     trade['result'] = 'unsuccessful'
                     volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
-                    sell_price = await krk_exchange.get_sell_price(trade['pair'])
+                    sell_price = await exchange.krk.get_sell_price(trade['pair'])
                     quantity = round(float(trade['quantity']) * float(sell_price) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
                     google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
                     available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
@@ -130,7 +133,7 @@ async def main(config):
                     balance = float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000'))
                     # profit = quantity - balance
                     # else:
-                        # balance = get_total_usdt_balance(bnb_exchange)
+                        # balance = get_total_usdt_balance(bnb_exchange.krk)
                         # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
                     result_text = "won" if profit > 0 else "lost"
                     log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {volume_30d + quantity}"
@@ -167,7 +170,6 @@ async def main(config):
             logger.info("Starting analysis...")
             opportunities = []
             # Get sorted pairs first
-            analyzer = Analyzer(config, krk_exchange, logger)
             s = await analyzer.get_opportunities()
             if s != {}:
                 sorted_pairs = s

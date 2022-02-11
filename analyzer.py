@@ -74,6 +74,7 @@ class Analyzer:
                     done = True
                     break
                 except:
+                    self.logger.info(traceback.format_exc())
                     await asyncio.sleep(2)
                     continue
             if done:
@@ -128,6 +129,7 @@ class Analyzer:
             except:
                 # self.logger.info(traceback.format_exc())
                 # self.logger.info(f"Retrying... ({pair})")
+                self.logger.info(traceback.format_exc())
                 await asyncio.sleep(2)
                 continue
 

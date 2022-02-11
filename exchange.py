@@ -5,7 +5,7 @@ from asynckraken import Client
 
 class Exchange:
     def __init__(self, api_key, api_secret, logger):
-        self.krk_exchange = Client(key=api_key, secret=api_secret)
+        self.krk = Client(key=api_key, secret=api_secret)
         self.logger = logger
 
     async def get_sell_price(self, pair):
@@ -13,7 +13,7 @@ class Exchange:
         # Get bid/ask prices
         for _ in range(20):
             try:
-                krk_asset_pair = await self.krk_exchange.query_public("AssetPairs", {'pair': pair})
+                krk_asset_pair = await self.krk.query_public("AssetPairs", {'pair': pair})
                 if krk_asset_pair['error'] != []:
                     raise
                 pair_decimals = krk_asset_pair['result'][list(krk_asset_pair['result'].keys())[0]]['pair_decimals']
@@ -22,7 +22,7 @@ class Exchange:
                 self.logger.info(f'[{pair}] Lot Decimals {str(lot_decimals)}')
                 # order_min = len(krk_asset_pair['result'][list(krk_asset_pair['result'].keys())[0]]['ordermin'].split(".")[1])
                 # self.logger.info(f'[{pair}] Order Min Decimals {str(order_min)}')
-                krk_tickers = await self.krk_exchange.query_public("Ticker", {'pair': pair})
+                krk_tickers = await self.krk.query_public("Ticker", {'pair': pair})
                 if krk_tickers['error'] != []:
                     raise
                 krk_tickers_result = krk_tickers['result'][list(krk_tickers['result'].keys())[0]]
