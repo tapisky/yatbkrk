@@ -135,7 +135,7 @@ async def main(config):
                     # else:
                         # balance = get_total_usdt_balance(bnb_exchange.krk)
                         # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
-                    result_text = "won" if profit > 0 else "lost"
+                    result_text = "won" if float(trade['profit']) > 0 else "lost"
                     log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {volume_30d + quantity}"
                     logger.info(log_message)
                     if telegram.notifications_on:
