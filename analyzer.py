@@ -59,6 +59,7 @@ class Analyzer:
                 self.logger.info(e)
                 print("Retrying after 10 seconds...")
                 time.sleep(10)
+                continue
         if done:
             targets = data['data']
             target_symbols = list(map(lambda x: x['symbol'], targets))
@@ -199,10 +200,10 @@ class Analyzer:
             self.logger.info(f"{str(interval)} Data: {pair} | This RSI {str(round(thisRsi, 2))} | Prev StochF K,D {str(round(prevStochFFastK, 2))}, {str(round(prevStochFFastD, 2))} | This StochF K,D {str(round(thisStochFFastK, 2))}|{str(round(thisStochFFastD, 2))}")
             # Check if good opp
             if (
-                (thisRsi < 55.0
+                (thisRsi < 53.0
                 and thisStochFFastK < 14.5
                 and thisStochFFastK < thisStochFFastD
-                and thisStochFFastK + 10.0 < thisStochFFastD
+                and thisStochFFastD > 22.0
                 and prevStochFFastK < 78.0
                 and prevStochFFastK < prevStochFFastD
                 and prevStochFFastK - thisStochFFastK < 20.0)

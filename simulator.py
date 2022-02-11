@@ -14,8 +14,8 @@ class Simulator:
     def get_krk_fees(self, volume):
         return FEES[list(filter(lambda item: float(item) <= float(volume), FEES))[-1]]
 
-    async def simulate_limit_buy_sell(self, pair, krk_pair, trade_amount, account_30d_volume, interval, trades):
-        result = False
+    async def simulate_limit_buy_sell(self, pair, krk_pair, trade_amount, interval, trades):
+        result = 0
         # Get bid/ask prices
         for _ in range(20):
             try:
@@ -61,11 +61,14 @@ class Simulator:
             # krk_tickers_result = krk_tickers['result'][krk_pair]
             # krk_buy_price = krk_tickers_result['b'][0]
             # Simulate buy and sell orders
-            quantity = round((float(trade_amount) / float(krk_buy_price)) * (1.0 - self.get_krk_fees(account_30d_volume)), 5)
-            profit = round((float(krk_sell_price) * quantity * (1.0 - self.get_krk_fees(account_30d_volume))) - trade_amount, 3)
-            trades.append({'pair': pair, 'krk_pair': krk_pair, 'type': 'sim', 'interval': interval, 'status': 'active', 'orderid': 0, 'time': time.time(), 'expirytime': time.time() + 43200.0, 'buyprice': krk_buy_price, 'expsellprice': krk_sell_price, 'quantity': quantity})
-            account_30d_volume += float(trade_amount)
-            self.google_sheets_helper.update_row('SimulationTest!T2:T2', account_30d_volume)
+            account_30d_volume = round(float(self.google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
+            fees = self.get_krk_fees(account_30d_volume)
+            quantity = round((float(trade_amount) / float(krk_buy_price)) * (1.0 - fees), 5)
+            profit = round((float(krk_sell_price) * quantity * (1.0 - fees)) - trade_amount, 3)
+            expiry_time = TRADE_EXPIRY_TIME['interval']
+            trades.append({'pair': pair, 'krk_pair': krk_pair, 'type': 'sim', 'interval': interval, 'status': 'active', 'orderid': 0, 'time': time.time(), 'expirytime': expiry_time, 'buyprice': krk_buy_price, 'expsellprice': krk_sell_price, 'quantity': quantity, 'profit': profit})
+            result = float(trade_amount)
+            # self.google_sheets_helper.update_row('SimulationTest!T2:T2', account_30d_volume)
             log_message = f"<YATB SIM> [{pair}] Bought {str(trade_amount)} @ {krk_buy_price} = {str(quantity)}. Sell @ {str(krk_sell_price)}. Exp. Profit ~ {str(profit)} USD"
             self.logger.info(log_message)
             if self.telegram.notifications_on:

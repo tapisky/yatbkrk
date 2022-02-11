@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 TRADE_CHECK_WAIT_TIME = {'15m': 90, '4h': 300, '1d': 300}
+TRADE_EXPIRY_TIME = {'15m': 1800.0, '4h': 43200.0, '1d': 43200.0}
 KRK_INTERVALS = {'15m': 15, '4h': 240, '1d': 1440}
 PRIORITIES = {'15m': 4, '4h': 3, '1d': 1}
 SELL_PERCENTAGE = {'15m': 1.0007, '4h': 1.003, '1d': 1.005}

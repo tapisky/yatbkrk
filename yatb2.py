@@ -16,12 +16,12 @@ from datetime import timedelta
 from requests import Request, Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 from os.path import exists
-from asynckraken import Client
 from analyzer import Analyzer
 from sheetshelper import SheetsHelper
 from telegram import Telegram
 from simulator import Simulator
 from yatbkrk_constants import *
+from exchange import Exchange
 
 class Opportunities:
     def __init__(self):
@@ -43,13 +43,13 @@ async def main(config):
     trades = []
 
     # Kraken API setup
-    krk_exchange = Client(key=config['krk_api_key'], secret=config['krk_api_secret'])
+    krk_exchange = Exchange(key=config['krk_api_key'], secret=config['krk_api_secret'], logger)
 
     # Initialize Google sheets
     google_sheets_helper = SheetsHelper(config['sheet_id'], logger)
 
     # Initialize Telegram
-    telegram = Telegram(config=config)
+    telegram = Telegram(config=config, logger=logger)
     if telegram.notifications_on:
         telegram.send("YATB SIM - Bot Started")
 
@@ -60,17 +60,22 @@ async def main(config):
     simulator = Simulator(krk_exchange, google_sheets_helper, logger, telegram)
 
     # Initialize sim_trades
-    sim_trades = 1
+    sim_trades = config['sim_trades']
+
+    # Initialize trade_amount for simulation
+    available = round(float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000')), 2)
+    google_sheets_helper.update_row('SimulationTest!P2:P2', available)
 
     date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
     status_message = f"{date_stamp} -- Bot Started"
     google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
 
     while True:
-        date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
-        status_message = f"{date_stamp} -- Checking current trades..."
-        google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
-        logger.info("Checking current trades...")
+        if trades:
+            date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
+            status_message = f"{date_stamp} -- Checking current trades..."
+            google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
+            logger.info(f"Checking current trades: {trades}")
         for trade in trades:
             if config['sim_mode_on']:
                 # Get current candle high and low prices of trade['pair']
@@ -109,23 +114,33 @@ async def main(config):
                     volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
                     quantity = round((float(trade['quantity']) * float(trade['expsellprice'])) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
                     google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
+                    available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
+                    google_sheets_helper.update_row('SimulationTest!P2:P2', available + quantity)
+                elif (time.time() - trade['time'] > TRADE_EXPIRY_TIME[trade['interval']]):
+                    trade['status'] = 'remove'
+                    trade['result'] = 'unsuccessful'
+                    volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
+                    quantity = round((float(trade['quantity']) * float(krk_exchange.get_sell_price(trade['pair']))) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
+                    google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
+                    available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
+                    google_sheets_helper.update_row('SimulationTest!P2:P2', available + quantity)
             if trade['status'] == 'remove':
                 if config['sim_mode_on']:
                     balance = float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000'))
-                    profit = quantity - balance
-                # else:
-                    # balance = get_total_usdt_balance(bnb_exchange)
-                    # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
-                result_text = "won" if profit > 0 else "lost"
-                log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(profit), 2))} USD. 30d balance = {volume_30d + quantity}"
-                logger.info(log_message)
-                if telegram.notifications_on:
-                    telegram.send(log_message)
-                # Update google sheet
-                sheets_date = str(time.localtime(time.time())[1]) + '/' + str(time.localtime(time.time())[2]) + '/' + str(time.localtime(time.time())[0])
-                google_sheets_helper.append_row('SimulationTest!A1:A5000', sheets_date, round(quantity, 2))
-                opp_details = f"{trade['pair']} - {trade['interval']}"
-                google_sheets_helper.update_row('SimulationTest!G2:G2', opp_details)
+                    # profit = quantity - balance
+                    # else:
+                        # balance = get_total_usdt_balance(bnb_exchange)
+                        # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
+                    result_text = "won" if profit > 0 else "lost"
+                    log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {volume_30d + quantity}"
+                    logger.info(log_message)
+                    if telegram.notifications_on:
+                        telegram.send(log_message)
+                    # Update google sheet
+                    sheets_date = str(time.localtime(time.time())[1]) + '/' + str(time.localtime(time.time())[2]) + '/' + str(time.localtime(time.time())[0])
+                    google_sheets_helper.append_row('SimulationTest!A1:A5000', sheets_date, balance + trade['profit'])
+                    opp_details = f"{trade['pair']} - {trade['interval']}"
+                    google_sheets_helper.append_row('SimulationTest!H3:H5000', opp_details, "")
             else:
                 # Current trade is still valid
                 logger.info(f"<YATB> [{trade['pair']}] Trade ongoing:")
@@ -173,10 +188,21 @@ async def main(config):
                     telegram.send(log_message)
                 if sim_trades > 0:
                     print("Simulating limit buy and sell...")
-                    trade_amount = float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000'))
-                    volume_30d = float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2'))
-                    sim_result = await simulator.simulate_limit_buy_sell(opportunities[0]['pair'], opportunities[0]['krk_pair'], trade_amount, volume_30d, interval, trades)
-                    sim_trades -= 1
+                    # Get opportunities with higher priority (higher priority = 1)
+                    min_priority = opportunities[0]['priority']
+                    filtered_opportunities = list(filter(lambda x: x['priority'] == min_priority, opportunities))
+                    available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
+                    trade_amount = available / sim_trades
+                    total_trades_amount = 0
+                    for i in range(sim_trades):
+                        sim_result = await simulator.simulate_limit_buy_sell(filtered_opportunities[i % len(filtered_opportunities)]['pair'], filtered_opportunities[i % len(filtered_opportunities)]['krk_pair'], trade_amount, filtered_opportunities[i % len(filtered_opportunities)]['interval'], trades)
+                        total_trades_amount += sim_result
+                        # sim_result = await simulator.simulate_limit_buy_sell(opp[0]['pair'], opp[0]['krk_pair'], opp_trade_amount, opp[0]['interval'], trades)
+                        google_sheets_helper.update_row('SimulationTest!P2:P2', available - trade_amount)
+                        sim_trades -= 1
+                    # Update 30d trade amount
+                    volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
+                    google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + total_trades_amount)
                 else:
                     log_message = f"<YATB KRK SIM> No trades available"
                     if telegram.notifications_on:
@@ -187,7 +213,7 @@ async def main(config):
                     telegram.send(log_message)
         else:
             date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
-            status_message = f"{date_stamp} -- Waiting for next iteration..."
+            status_message = f"{date_stamp} -- Waiting for next iteration -- Sim trades = {sim_trades} -- Ongoing trades: {trades}"
             google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
             logger.info("Waiting for the right time...")
         await asyncio.sleep(30)
@@ -220,10 +246,6 @@ def setupLogger(log_filename):
 
     logger.setLevel('DEBUG')
     return logger
-
-def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
-    send_text = 'https://api.telegram.org/bot' + bot_token + '/sendMessage?chat_id=' + str(bot_chatID) + '&parse_mode=Markdown&text=' + bot_message
-    response = requests.get(send_text)
 
 loop = asyncio.get_event_loop()
 try:
