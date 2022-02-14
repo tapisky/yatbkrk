@@ -28,11 +28,11 @@ class Exchange:
                     raise
                 krk_tickers_result = krk_tickers['result'][list(krk_tickers['result'].keys())[0]]
                 krk_sell_price = krk_tickers_result['a'][0]
-                self.logger.info(f'[{pair}] ({interval}) Sell price {krk_sell_price}')
+                self.logger.info(f'[{pair}] (UNSUCCESSFUL TRADE) Sell price {krk_sell_price}')
                 decimal_formatter = "%." + str(pair_decimals) + "f"
                 lot_decimal_formatter = "%." + str(lot_decimals) + "f"
                 krk_sell_price = (decimal_formatter % krk_sell_price).rstrip('0').rstrip('.')
-                self.logger.info(f'[{pair}] ({interval}) Try sell @ {krk_sell_price}')
+                self.logger.info(f'[{pair}] (UNSUCCESSFUL TRADE) Try sell @ {krk_sell_price}')
                 result = krk_sell_price
                 break
             except:
