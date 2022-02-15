@@ -31,7 +31,7 @@ class Exchange:
                 self.logger.info(f'[{pair}] (UNSUCCESSFUL TRADE) Sell price {krk_sell_price}')
                 decimal_formatter = "%." + str(pair_decimals) + "f"
                 lot_decimal_formatter = "%." + str(lot_decimals) + "f"
-                krk_sell_price = (decimal_formatter % krk_sell_price).rstrip('0').rstrip('.')
+                krk_sell_price = (decimal_formatter % float(krk_sell_price)).rstrip('0').rstrip('.')
                 self.logger.info(f'[{pair}] (UNSUCCESSFUL TRADE) Try sell @ {krk_sell_price}')
                 result = krk_sell_price
                 break
