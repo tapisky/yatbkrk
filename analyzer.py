@@ -101,7 +101,7 @@ class Analyzer:
                 await asyncio.sleep(sample(NONCE,1)[0])
                 klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': '5'})
                 diff = float(klines['result'][kraken_pair][-10][4])/float(klines['result'][kraken_pair][-1][4])
-                if diff > 1.0095:
+                if diff > 1.008:
                     initial_check = False
                 break
             except:
@@ -231,10 +231,10 @@ class Analyzer:
                     or (
                         (prevStochFFastK < prevStochFFastD
                         and thisStochFFastK > thisStochFFastD
-                        and thisStochFFastK > 60.0
+                        and thisStochFFastK > 65.0
                         and thisStochFFastK < 99.0
                         and thisStochFFastK - thisStochFFastD > (thisStochFFastK * 0.275)
-                        and thisRsi < 55.0)
+                        and thisRsi < 60.0)
                     )
                 ):
                     # Put  opportunities in opps dict
