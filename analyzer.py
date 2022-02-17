@@ -94,20 +94,175 @@ class Analyzer:
         return sorted_asset_pairs
 
     async def analyze_pair(self, pair, kraken_pair, interval, opps):
-        # First analyze if there was a price drop in the last hour. If so, stop the analysis.
+        # First analyze if there was a price drop in the last hour or there was no volume in the candle.
+        # If so, stop the analysis.
         initial_check = True
         for _ in range(5):
             try:
                 await asyncio.sleep(sample(NONCE,1)[0])
-                klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': '5'})
-                diff = float(klines['result'][kraken_pair][-10][4])/float(klines['result'][kraken_pair][-1][4])
-                if diff > 1.008:
+                klines_5m = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': '5'})
+                diff = float(klines_5m['result'][kraken_pair][-10][4])/float(klines_5m['result'][kraken_pair][-1][4])
+                klines_15m = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': KRK_INTERVALS[interval]})
+                candle_volume = klines_15m['result'][kraken_pair][-1][6]
+                if diff > 1.008 or float(candle_volume) == 0.0 :
                     initial_check = False
                 break
             except:
                 self.logger.info(traceback.format_exc())
                 await asyncio.sleep(2)
                 continue
+        if not initial_check:
+            self.logger.info(f"{pair} not a good entry point")
+        else:
+            # Continue with the rest of the analysis
+            # Initialize variables
+            prevKlineClose = None
+            prevKlineLow = None
+            thisKlineClose = None
+            thisKlineLow = None
+            prevRsi = None
+            thisRsi = None
+            prevStochFFastK = None
+            prevStochFFastD = None
+            thisStochFFastK = None
+            thisStochFFastD = None
+
+            for _ in range(5):
+                try:
+                    await asyncio.sleep(sample(NONCE,1)[0])
+                    klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': KRK_INTERVALS[interval]})
+                    klines = klines['result'][kraken_pair][-1]
+                    await asyncio.sleep(sample(NONCE,1)[0])
+                    prev_klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': KRK_INTERVALS[interval]})
+                    prev_klines = prev_klines['result'][kraken_pair][-2]
+                    if float(prev_klines[4]) - float(prev_klines[1]) < 0:
+                        prevKline = 'negative'
+                    else:
+                        prevKline = 'positive'
+                    if float(klines[4]) - float(klines[1]) < 0:
+                        thisKline = 'negative'
+                    else:
+                        thisKline = 'positive'
+                    prevKlineClose = float(prev_klines[4])
+                    prevKlineLow = float(prev_klines[3])
+                    thisKlineClose = float(klines[4])
+                    thisKlineLow = float(klines[3])
+                    break
+                except:
+                    # self.logger.info(traceback.format_exc())
+                    # self.logger.info(f"Retrying... ({pair})")
+                    self.logger.info(traceback.format_exc())
+                    await asyncio.sleep(2)
+                    continue
+
+            # Get technical info
+            taapiSymbol = pair.split('USD')[0] + "/" + "USDT"
+            endpoint = "https://api.taapi.io/bulk"
+
+            # Get  indicators
+            parameters = {
+                "secret": self.config['taapi_api_key'],
+                "construct": {
+                    "exchange": "binance",
+                    "symbol": taapiSymbol,
+                    "interval": interval,
+                    "indicators": [
+                    {
+                        # Previous Relative Strength Index
+                        "id": "prevrsi",
+                        "indicator": "rsi",
+                        "backtrack": 1
+                    },
+                    {
+                        # Current Relative Strength Index
+                        "id": "thisrsi",
+                        "indicator": "rsi"
+                    },
+                    {
+                        # Previous stoch fast
+                        "id": "prevstochf",
+                        "indicator": "stochf",
+                        "backtrack": 1,
+                        "optInFastK_Period": 3,
+                        "optInFastD_Period": 3
+                    },
+                    {
+                        # Current stoch fast
+                        "id": "thisstochf",
+                        "indicator": "stochf",
+                        "optInFastK_Period": 3,
+                        "optInFastD_Period": 3
+                    }
+                    ]
+                }
+            }
+
+            async with aiohttp.ClientSession() as session:
+                done = False
+                for _ in range(20):
+                    try:
+                        # Send POST request and save the response as response object
+                        # response = requests.post(url = endpoint, json = parameters)
+                        async with session.post(url = endpoint, json = parameters) as resp:
+                            # Extract data in json format
+                            result = await resp.json()
+                        prevRsi = float(result['data'][0]['result']['value'])
+                        thisRsi = float(result['data'][1]['result']['value'])
+                        prevStochFFastK = float(result['data'][2]['result']['valueFastK'])
+                        prevStochFFastD = float(result['data'][2]['result']['valueFastD'])
+                        thisStochFFastK = float(result['data'][3]['result']['valueFastK'])
+                        thisStochFFastD = float(result['data'][3]['result']['valueFastD'])
+                        done = True
+                        break
+                    except:
+                        # self.logger.info(traceback.format_exc())
+                        # self.logger.info(f"{pair} | TAAPI Response ({str(interval)}): {result}. Trying again...")
+                        await asyncio.sleep(8)
+                        await asyncio.sleep(sample(NONCE,1)[0])
+                        continue
+            if done:
+                self.logger.info(f"{str(interval)} Data: {pair} | This RSI {str(round(thisRsi, 2))} | Prev StochF K,D {str(round(prevStochFFastK, 2))}, {str(round(prevStochFFastD, 2))} | This StochF K,D {str(round(thisStochFFastK, 2))}|{str(round(thisStochFFastD, 2))}")
+                # Check if good opp
+                if (
+                    (thisRsi < 53.0
+                    and thisStochFFastK < 14.5
+                    and thisStochFFastK < thisStochFFastD
+                    and thisStochFFastD > 22.0
+                    and prevStochFFastK < 78.0
+                    and prevStochFFastK < prevStochFFastD
+                    and prevStochFFastK - thisStochFFastK < 20.0)
+                    or (
+                        (prevStochFFastK < prevStochFFastD
+                        and thisStochFFastK > thisStochFFastD
+                        and thisStochFFastK > 65.0
+                        and thisStochFFastK < 99.0
+                        and thisStochFFastK - thisStochFFastD > (thisStochFFastK * 0.275)
+                        and thisRsi < 60.0)
+                    )
+                ):
+                    # Put  opportunities in opps dict
+                    opps.append({'pair': pair, 'krk_pair': kraken_pair, 'interval': interval, 'priority': PRIORITIES[interval]})
+                    self.logger.info(f"{pair} good candidate for one of the strategies")
+                else:
+                    self.logger.info(f"{pair} not a good entry point")
+            else:
+                self.logger.info(f"{str(interval)} Data: {pair} | Could not complete analysis")
+
+    async def analyze_pair_5m(self, pair, kraken_pair, interval, opps):
+        # First analyze if there was a price drop in the last hour. If so, stop the analysis.
+        initial_check = True
+        # for _ in range(5):
+        #     try:
+        #         await asyncio.sleep(sample(NONCE,1)[0])
+        #         klines = await self.krk_exchange.query_public('OHLC', {'pair': pair, 'interval': '5'})
+        #         diff = float(klines['result'][kraken_pair][-10][4])/float(klines['result'][kraken_pair][-1][4])
+        #         if diff > 1.008:
+        #             initial_check = False
+        #         break
+        #     except:
+        #         self.logger.info(traceback.format_exc())
+        #         await asyncio.sleep(2)
+        #         continue
         if not initial_check:
             self.logger.info(f"{pair} not a good entry point")
         else:
