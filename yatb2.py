@@ -86,88 +86,91 @@ async def main(config):
                 status_message = f"{date_stamp} -- Checking current trades..."
                 google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
                 logger.info(f"Checking current trades: {trades}")
-            for trade in trades:
-                if config['sim_mode_on']:
-                    # Get current candle high and low prices of trade['pair']
-                    for _ in range(5):
-                        try:
-                            klines = await exchange.krk.query_public('OHLC', {'pair': trade['pair'], 'interval': KRK_INTERVALS[trade['interval']]})
-                            if klines['error'] != []:
-                                raise
-                            klines = klines['result'][list(klines['result'].keys())[0]][-1]
-                            # krk_asset_pair = await exchange.krk.query_public("AssetPairs", {'pair': trade['pair']})
-                            # if krk_asset_pair['error'] != []:
-                            #     raise
-                            # else:
-                            #     krk_asset_pair = krk_asset_pair['result'][list(krk_asset_pair['result'].keys())[0]]
-                            # pair_decimals = krk_asset_pair['pair_decimals']
-                            # print(f'[{pair}] Pair Decimals {str(pair_decimals)}')
-                            # lot_decimals = krk_asset_pair['lot_decimals']
-                            # print(f'[{pair}] Lot Decimals {str(lot_decimals)}')
-                            # order_min = len(krk_asset_pair['ordermin'].split(".")[1])
-                            # print(f'[{pair}] Order Min Decimals {str(order_min)}')
-                            krk_tickers = await exchange.krk.query_public("Ticker", {'pair': trade['pair']})
-                            if krk_tickers['error'] != []:
-                                raise
-                            krk_tickers = krk_tickers['result'][list(krk_tickers['result'].keys())[0]]
-                            krk_sell_price = krk_tickers['a'][0]
-                            break
-                        except:
-                            logger.info(traceback.format_exc())
-                            logger.info("Retrying...")
-                            await asyncio.sleep(3)
-                            continue
-                    if (float(klines[2]) >= float(trade['expsellprice'])) and ((time.time() - trade['time']) > TRADE_CHECK_WAIT_TIME[trade['interval']]):
-                        # Success!
-                        trade['status'] = 'remove'
-                        trade['result'] = 'successful'
-                        volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
-                        quantity = round((float(trade['quantity']) * float(trade['expsellprice'])) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
-                        google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
-                        # available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
-                        global_available += quantity
-                        google_sheets_helper.update_row('SimulationTest!P2:P2', global_available)
-                    elif (time.time() - trade['time'] > TRADE_EXPIRY_TIME[trade['interval']]):
-                        trade['status'] = 'remove'
-                        trade['result'] = 'unsuccessful'
-                        volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
-                        sell_price = await exchange.get_sell_price(trade['pair'])
-                        quantity = round(float(trade['quantity']) * float(sell_price) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
-                        trade['profit'] = quantity - float(trade['trade_amount'])
-                        google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
-                        # available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
-                        global_available += quantity
-                        google_sheets_helper.update_row('SimulationTest!P2:P2', global_available)
-                if trade['status'] == 'remove':
+                for trade in trades:
                     if config['sim_mode_on']:
-                        balance = float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000'))
-                        # profit = quantity - balance
-                        # else:
-                            # balance = get_total_usdt_balance(bnb_exchange.krk)
-                            # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
-                        result_text = "won" if float(trade['profit']) > 0 else "lost"
-                        log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {round(volume_30d + quantity, 2)}"
-                        logger.info(log_message)
-                        if telegram.notifications_on:
-                            telegram.send(log_message)
-                        # Update google sheet
-                        sheets_date = str(time.localtime(time.time())[1]) + '/' + str(time.localtime(time.time())[2]) + '/' + str(time.localtime(time.time())[0])
-                        google_sheets_helper.append_row('SimulationTest!A1:A5000', sheets_date, balance + trade['profit'])
-                        # opp_details = f"{trade['pair']} - {trade['interval']}"
-                        # google_sheets_helper.append_row('SimulationTest!H3:H5000', opp_details, "")
-                else:
-                    # Current trade is still valid
-                    logger.info(f"<YATB> [{trade['pair']}] Trade ongoing:")
-                    print(trade)
+                        # Get current candle high and low prices of trade['pair']
+                        for _ in range(5):
+                            try:
+                                klines = await exchange.krk.query_public('OHLC', {'pair': trade['pair'], 'interval': KRK_INTERVALS[trade['interval']]})
+                                if klines['error'] != []:
+                                    raise
+                                klines = klines['result'][list(klines['result'].keys())[0]][-1]
+                                # krk_asset_pair = await exchange.krk.query_public("AssetPairs", {'pair': trade['pair']})
+                                # if krk_asset_pair['error'] != []:
+                                #     raise
+                                # else:
+                                #     krk_asset_pair = krk_asset_pair['result'][list(krk_asset_pair['result'].keys())[0]]
+                                # pair_decimals = krk_asset_pair['pair_decimals']
+                                # print(f'[{pair}] Pair Decimals {str(pair_decimals)}')
+                                # lot_decimals = krk_asset_pair['lot_decimals']
+                                # print(f'[{pair}] Lot Decimals {str(lot_decimals)}')
+                                # order_min = len(krk_asset_pair['ordermin'].split(".")[1])
+                                # print(f'[{pair}] Order Min Decimals {str(order_min)}')
+                                krk_tickers = await exchange.krk.query_public("Ticker", {'pair': trade['pair']})
+                                if krk_tickers['error'] != []:
+                                    raise
+                                krk_tickers = krk_tickers['result'][list(krk_tickers['result'].keys())[0]]
+                                krk_sell_price = krk_tickers['a'][0]
+                                break
+                            except:
+                                logger.info(traceback.format_exc())
+                                logger.info("Retrying...")
+                                await asyncio.sleep(3)
+                                continue
+                        if (float(klines[2]) >= float(trade['expsellprice'])) and ((time.time() - trade['time']) > TRADE_CHECK_WAIT_TIME[trade['interval']]):
+                            # Success!
+                            trade['status'] = 'remove'
+                            trade['result'] = 'successful'
+                            volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
+                            quantity = round((float(trade['quantity']) * float(trade['expsellprice'])) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
+                            google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
+                            # available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
+                            global_available += quantity
+                            google_sheets_helper.update_row('SimulationTest!P2:P2', global_available)
+                        elif (time.time() - trade['time'] > TRADE_EXPIRY_TIME[trade['interval']]):
+                            trade['status'] = 'remove'
+                            trade['result'] = 'unsuccessful'
+                            volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
+                            sell_price = await exchange.get_sell_price(trade['pair'])
+                            quantity = round(float(trade['quantity']) * float(sell_price) * (1.0 - simulator.get_krk_fees(volume_30d)), 2)
+                            trade['profit'] = quantity - float(trade['trade_amount'])
+                            google_sheets_helper.update_row('SimulationTest!T2:T2', volume_30d + quantity)
+                            # available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
+                            global_available += quantity
+                            google_sheets_helper.update_row('SimulationTest!P2:P2', global_available)
+                    if trade['status'] == 'remove':
+                        if config['sim_mode_on']:
+                            balance = float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000'))
+                            # profit = quantity - balance
+                            # else:
+                                # balance = get_total_usdt_balance(bnb_exchange.krk)
+                                # profit = round(float(balance) - float(get_balance(config['sheet_id'])), 2)
+                            result_text = "won" if float(trade['profit']) > 0 else "lost"
+                            log_message = f"<YATB> [{trade['pair']}] ({trade['result'].upper()}) You have {result_text} {str(round(float(trade['profit']), 2))} USD. 30d balance = {round(volume_30d + quantity, 2)}"
+                            logger.info(log_message)
+                            if telegram.notifications_on:
+                                telegram.send(log_message)
+                            # Update google sheet
+                            sheets_date = str(time.localtime(time.time())[1]) + '/' + str(time.localtime(time.time())[2]) + '/' + str(time.localtime(time.time())[0])
+                            google_sheets_helper.append_row('SimulationTest!A1:A5000', sheets_date, balance + trade['profit'])
+                            # opp_details = f"{trade['pair']} - {trade['interval']}"
+                            # google_sheets_helper.append_row('SimulationTest!H3:H5000', opp_details, "")
+                    else:
+                        # Current trade is still valid
+                        logger.info(f"<YATB> [{trade['pair']}] Trade ongoing:")
+                        print(trade)
 
-            # Remove old trade items
-            trades = list(filter(lambda item: item['status'] == 'active', trades))
-            sim_trades = config['sim_trades'] - len(trades)
+                # Remove old trade items
+                trades = list(filter(lambda item: item['status'] == 'active', trades))
+                sim_trades = config['sim_trades'] - len(trades)
 
             # Check Bitcoin sentiment
             bitcoin_sentiment = await analyzer.get_bitcoin_sentiment()
             if float(bitcoin_sentiment) < 0.0:
+                logger.info(f"Bitcoin sentiment is negative ({str(bitcoin_sentiment)}). Locking trading for 15 mins...")
                 trade_lock = time.time() + 900
+            if time.time() < trade_lock:
+                logger.info(f"Trading locked. {str(round((trade_lock - time.time()) / 60, 1))} minutes left before resuming trading again.")
 
             # Check markets if it's the right time
             intervals = []
@@ -233,10 +236,6 @@ async def main(config):
                     if telegram.notifications_on:
                         telegram.send(log_message)
             else:
-                if time.time() < trade_lock:
-                    log_message = f"<YATB KRK SIM> Bitcoin sentiment is negative"
-                    if telegram.notifications_on:
-                        telegram.send(log_message)
                 date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
                 status_message = f"{date_stamp} -- Waiting for next iteration -- Sim trades = {sim_trades} -- Ongoing trades: {trades}"
                 google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
