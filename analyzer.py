@@ -28,6 +28,22 @@ class Analyzer:
         self.krk_exchange = krk_exchange
         self.logger = logger
 
+    async def get_bitcoin_sentiment(self):
+        # Get Bitcoin sentiment (senticrypt.com)
+        sentiment = 1
+        for _ in range(3):
+            try:
+                result = requests.get('https://api.senticrypt.com/v1/bitcoin.json')
+                data = result.json()
+                sentiment = data[-1]['last']
+                break
+            except (ConnectionError, Timeout, TooManyRedirects) as e:
+                self.logger.info(e)
+                print("Retrying after 5 seconds...")
+                time.sleep(5)
+                continue
+        return float(sentiment)
+
     async def get_opportunities(self):
         # Get analysis asset pairs
         sorted_asset_pairs = {}

@@ -40,3 +40,18 @@ class Exchange:
                 time.sleep(8)
                 continue
         return result
+
+    async def get_kraken_exchange_status(self):
+        result = 'online'
+        for _ in range (5):
+            try:
+                krk_status = await self.krk.query_public("SystemStatus")
+                if krk_status['error'] != []:
+                    raise
+                result = krk_status['result']['status']
+                break
+            except:
+                self.logger.info(traceback.format_exc())
+                time.sleep(8)
+                continue
+        return result

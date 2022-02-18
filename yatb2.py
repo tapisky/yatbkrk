@@ -42,6 +42,9 @@ async def main(config):
     # Initialize trades
     trades = []
 
+    # Initialize trade_lock
+    trade_lock = 0
+
     # Kraken API setup
     exchange = Exchange(config['krk_api_key'], config['krk_api_secret'], logger)
 
@@ -64,6 +67,9 @@ async def main(config):
 
     # Initialize sim_trades
     sim_trades = config['sim_trades']
+
+    # Initialize exchange status
+    exchange_status = 'online'
 
     # Initialize trade_amount for simulation
     global_available = round(float(google_sheets_helper.get_cell_value('SimulationTest!B2:B5000')), 2)
@@ -158,6 +164,11 @@ async def main(config):
             trades = list(filter(lambda item: item['status'] == 'active', trades))
             sim_trades = config['sim_trades'] - len(trades)
 
+            # Check Bitcoin sentiment
+            bitcoin_sentiment = await analyzer.get_bitcoin_sentiment()
+            if float(bitcoin_sentiment) < 0.0:
+                trade_lock = time.time() + 900
+
             # Check markets if it's the right time
             intervals = []
             # if time.gmtime()[3] % 24 == 23 and time.gmtime()[4] == 58:
@@ -167,7 +178,9 @@ async def main(config):
             if (time.gmtime()[4] % 15 == 13) or (time.gmtime()[4] % 15 == 14 and time.gmtime()[5] < 10):
                 intervals.append('15m')
 
-            if intervals:
+            status = await exchange.get_kraken_exchange_status()
+
+            if intervals and exchange_status == 'online' and time.time() > trade_lock:
                 date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
                 status_message = f"{date_stamp} -- Checking opportunities for intervals => {intervals}..."
                 google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
@@ -220,6 +233,10 @@ async def main(config):
                     if telegram.notifications_on:
                         telegram.send(log_message)
             else:
+                if time.time() < trade_lock:
+                    log_message = f"<YATB KRK SIM> Bitcoin sentiment is negative"
+                    if telegram.notifications_on:
+                        telegram.send(log_message)
                 date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
                 status_message = f"{date_stamp} -- Waiting for next iteration -- Sim trades = {sim_trades} -- Ongoing trades: {trades}"
                 google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
