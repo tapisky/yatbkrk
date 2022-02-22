@@ -7,7 +7,6 @@ import sys
 import traceback
 import json
 import cryptocom.exchange as cro
-import krakenex
 import pickle
 import os.path
 import requests
@@ -22,42 +21,29 @@ from cryptocom.exchange.structs import Pair
 from cryptocom.exchange.structs import PrivateTrade
 from binance.client import Client as Client
 from binance.exceptions import *
+from asynckraken import ClientKrk
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-# Wrapper for Binance API (helps getting through the recvWindow issue)
-class Binance:
-    def __init__(self, public_key = '', secret_key = '', sync = False):
-        self.time_offset = 0
-        self.b = Client(public_key, secret_key)
+class Opportunities:
+    def __init__(self):
+        self.opps_list = []
 
-        if sync:
-            self.time_offset = self._get_time_offset()
-
-    def _get_time_offset(self):
-        res = self.b.get_server_time()
-        return res['serverTime'] - int(time.time() * 1000)
-
-    def synced(self, fn_name, **args):
-        args['timestamp'] = int(time.time() - self.time_offset)
+    def append(self, element):
+        self.opps_list.append(element)
 
 async def main(config):
     iteration = 0
 
-    stable_coins = ['USDCUSDT', 'PAXUSDT', 'ONGUSDT', 'TUSDUSDT', 'BUSDUSDT', 'ONTUSDT', 'GUSDUSDT', 'DGXUSDT', 'DAIUSDT', 'USTUSDT']
+    # Initialize opportunities
+    opportunities = Opportunities()
 
-    # Binance API setup
-    binance = Binance(public_key=config['bnb_api_key'], secret_key=config['bnb_api_secret'], sync=True)
-    bnb_exchange = binance.b
+    # Kraken API setup
+    krk_exchange = ClientKrk(key=config['krk_api_key'], secret=config['krk_api_secret'])
 
-    # Setup Binance availble USDT pairs
-    tickers = bnb_exchange.get_all_tickers()
-    usdt_tickers = [item for item in tickers if 'USDT' in item['symbol']]
 
-    # Remove Stable coins
-    usdt_tickers = [item for item in usdt_tickers if item['symbol'] not in stable_coins]
-    usdt_tickers = list(map(lambda x: x['symbol'], usdt_tickers))
+
 
     balance = get_balance(config['sheet_id'])
     if config['sim_mode_on']:
