@@ -35,7 +35,7 @@ class Analyzer:
             try:
                 result = requests.get('https://api.senticrypt.com/v1/bitcoin.json')
                 data = result.json()
-                sentiment = data[-1]['last']
+                sentiment = data[-1]['mean']
                 break
             except (ConnectionError, Timeout, TooManyRedirects) as e:
                 self.logger.info(e)

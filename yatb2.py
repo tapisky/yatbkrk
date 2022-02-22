@@ -117,6 +117,7 @@ async def main(config):
                                 logger.info("Retrying...")
                                 await asyncio.sleep(3)
                                 continue
+                        current_sell_price = await exchange.get_sell_price(trade['pair'])
                         if (float(klines[2]) >= float(trade['expsellprice'])) and ((time.time() - trade['time']) > TRADE_CHECK_WAIT_TIME[trade['interval']]):
                             # Success!
                             trade['status'] = 'remove'
@@ -127,7 +128,10 @@ async def main(config):
                             # available = round(float(google_sheets_helper.get_cell_value('SimulationTest!P2:P2')), 2)
                             global_available += quantity
                             google_sheets_helper.update_row('SimulationTest!P2:P2', global_available)
-                        elif (time.time() - trade['time'] > TRADE_EXPIRY_TIME[trade['interval']]):
+                        elif (
+                                (float(current_sell_price) < (float(trade['buyprice']) * 0.997))
+                                or
+                                (time.time() - trade['time'] > TRADE_EXPIRY_TIME[trade['interval']])):
                             trade['status'] = 'remove'
                             trade['result'] = 'unsuccessful'
                             volume_30d = round(float(google_sheets_helper.get_cell_value('SimulationTest!T2:T2')), 2)
@@ -165,12 +169,12 @@ async def main(config):
                 sim_trades = config['sim_trades'] - len(trades)
 
             # Check Bitcoin sentiment
-            bitcoin_sentiment = await analyzer.get_bitcoin_sentiment()
-            if float(bitcoin_sentiment) < 0.0:
-                logger.info(f"Bitcoin sentiment is negative ({str(bitcoin_sentiment)}). Locking trading for 15 mins...")
-                trade_lock = time.time() + 900
-            if time.time() < trade_lock:
-                logger.info(f"Trading locked. {str(round((trade_lock - time.time()) / 60, 1))} minutes left before resuming trading again.")
+            # bitcoin_sentiment = await analyzer.get_bitcoin_sentiment()
+            # if float(bitcoin_sentiment) <= 23.0:
+            #     logger.info(f"Bitcoin mean below 0.24 ({str(bitcoin_sentiment)}). Locking trading for 5 mins...")
+            #     trade_lock = time.time() + 300
+            # if time.time() < trade_lock:
+            #     logger.info(f"Trading locked. {str(round((trade_lock - time.time()) / 60, 1))} minutes left before resuming trading again.")
 
             # Check markets if it's the right time
             intervals = []
@@ -183,7 +187,8 @@ async def main(config):
 
             status = await exchange.get_kraken_exchange_status()
 
-            if intervals and exchange_status == 'online' and time.time() > trade_lock:
+            # if intervals and exchange_status == 'online' and time.time() > trade_lock:
+            if intervals and exchange_status == 'online':
                 date_stamp = datetime_helper.utcnow().strftime("%d/%m/%Y %H:%M:%S")
                 status_message = f"{date_stamp} -- Checking opportunities for intervals => {intervals}..."
                 google_sheets_helper.update_row('SimulationTest!F2:F2', status_message)
